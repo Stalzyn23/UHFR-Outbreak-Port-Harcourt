@@ -1,0 +1,588 @@
+:root {
+  color-scheme: dark;
+  --ink: #f7f3ea;
+  --muted: #b8b2a4;
+  --line: rgba(255, 255, 255, 0.14);
+  --panel: rgba(16, 22, 22, 0.9);
+  --panel2: rgba(31, 38, 35, 0.86);
+  --accent: #f1bd55;
+  --danger: #d45c48;
+  --leaf: #6ea37b;
+  --water: #71a3b8;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; min-width: 0; }
+html, body, #app {
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+body {
+  background: #101616;
+  color: var(--ink);
+  overflow: hidden;
+  position: fixed;
+  inset: 0;
+}
+button, input, textarea {
+  font: inherit;
+}
+button {
+  border: 0;
+  background: var(--accent);
+  color: #17130b;
+  min-height: 44px;
+  border-radius: 8px;
+  padding: 0 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+input, textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.08);
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 12px;
+  outline: none;
+}
+textarea { resize: none; }
+label { display: grid; gap: 7px; color: var(--muted); font-size: 0.86rem; }
+h1, h2, h3, p { margin: 0; }
+h1 {
+  max-width: 760px;
+  font-size: 6.2rem;
+  line-height: 0.9;
+  letter-spacing: 0;
+}
+h2 { font-size: 1.5rem; letter-spacing: 0; }
+h3 { font-size: 1rem; }
+.kicker {
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+.muted { color: var(--muted); }
+
+.landing {
+  height: 100%;
+}
+.hero {
+  position: relative;
+  height: 100%;
+  background-image: url("../assets/uhfr-campus-hero.png");
+  background-size: cover;
+  background-position: center;
+  display: grid;
+  align-items: end;
+  padding: clamp(18px, 4vw, 56px);
+}
+.heroShade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(6,9,9,0.9), rgba(6,9,9,0.46) 48%, rgba(6,9,9,0.28)),
+    linear-gradient(0deg, rgba(6,9,9,0.94), transparent 52%);
+}
+.heroContent {
+  position: relative;
+  display: grid;
+  gap: 18px;
+  padding-bottom: min(8vh, 58px);
+}
+.heroCopy {
+  max-width: 620px;
+  color: #e0dbd0;
+  font-size: 1.08rem;
+  line-height: 1.55;
+}
+.lanHint {
+  max-width: 640px;
+  color: #d6e4de;
+  font-size: 0.9rem;
+  background: rgba(0,0,0,0.34);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.joinCard {
+  width: min(430px, 100%);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.setupShell, .lobby {
+  min-height: 100%;
+  overflow: auto;
+  background:
+    linear-gradient(rgba(11,16,16,0.82), rgba(11,16,16,0.98)),
+    url("../assets/uhfr-campus-hero.png") center/cover;
+  padding: 18px;
+}
+.setupPanel, .lobbyPanel {
+  width: min(980px, 100%);
+  margin: 0 auto;
+  background: rgba(13, 19, 18, 0.9);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  display: grid;
+  gap: 18px;
+}
+.ghostButton {
+  width: 44px;
+  padding: 0;
+  background: rgba(255,255,255,0.12);
+  color: var(--ink);
+}
+.characterForm { display: grid; gap: 16px; }
+.pickGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+.pick, .face {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(255,255,255,0.06);
+  color: var(--ink);
+}
+.pick input, .face input { display: none; }
+.pick span { color: var(--muted); font-size: 0.82rem; line-height: 1.35; }
+.selected { outline: 2px solid var(--accent); }
+.faceGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+.portrait {
+  width: 58px;
+  height: 58px;
+  display: block;
+  border-radius: 50%;
+  background: var(--face);
+  overflow: hidden;
+  border: 2px solid rgba(255,255,255,0.26);
+}
+.portrait img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.lobbyTop, .lobbyBody {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+.lobbyBody { align-items: stretch; }
+.survivorList, .chatBox {
+  flex: 1;
+  min-width: 0;
+}
+.playerCard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.playerCard span {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--leaf);
+  color: #08100b;
+  font-weight: 900;
+  overflow: hidden;
+}
+.playerCard span img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.playerCard small {
+  display: block;
+  color: var(--muted);
+}
+.chatBox {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.chatLog {
+  min-height: 240px;
+  padding: 12px;
+  overflow: auto;
+}
+.chatInput {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.gameShell {
+  position: relative;
+  height: 100dvh;
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  overflow: hidden;
+  background:
+    linear-gradient(rgba(9,13,13,0.68), rgba(9,13,13,0.93)),
+    url("../assets/uhfr-campus-hero.png") center/cover;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 22px 80px rgba(0,0,0,0.38);
+}
+.rail {
+  width: 58px;
+  min-width: 58px;
+  border-right: 1px solid var(--line);
+  background: rgba(8, 12, 12, 0.86);
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 10px 7px;
+}
+.rail button, .topIcons button {
+  width: 44px;
+  padding: 0;
+  background: rgba(255,255,255,0.1);
+  color: var(--ink);
+}
+.avatarButton {
+  background: var(--accent) !important;
+  color: #17130b !important;
+  border-radius: 50%;
+  overflow: hidden;
+}
+.avatarButton img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.playArea {
+  position: relative;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) 6px auto auto;
+  padding: 10px;
+  gap: 8px;
+  overflow: hidden;
+}
+.topStrip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+.coreStats {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+.coreStats::-webkit-scrollbar { display: none; }
+.coreStats span {
+  min-width: 44px;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 9px;
+  background: rgba(0,0,0,0.34);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 0.86rem;
+}
+.topIcons {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 7px;
+}
+.storyPanel {
+  width: 100%;
+  max-width: 100%;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(13, 18, 18, 0.88);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+.sceneHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.sceneHeader span {
+  color: var(--muted);
+  white-space: nowrap;
+}
+.storyFeed {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  min-height: 0;
+  max-height: 100%;
+  padding: 12px;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+.line {
+  width: 100%;
+  max-width: 100%;
+  padding: 11px 12px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.06);
+  border-left: 3px solid var(--line);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.line.gm { border-left-color: var(--accent); }
+.line.player { border-left-color: var(--water); }
+.line.system { border-left-color: var(--leaf); color: #dceadf; }
+.line.world { border-left-color: var(--danger); }
+.timerBar {
+  background: rgba(255,255,255,0.12);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.timerBar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--leaf), var(--accent), var(--danger));
+}
+.actionFold {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(8,12,12,0.84);
+  min-height: 0;
+  overflow: hidden;
+}
+.actionFold.open {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  z-index: 6;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  max-height: min(56dvh, 430px);
+  background: rgba(8, 12, 12, 0.97);
+  border-color: rgba(241, 189, 85, 0.42);
+  box-shadow: 0 18px 60px rgba(0,0,0,0.62);
+}
+.foldHead {
+  width: 100%;
+  background: transparent;
+  color: var(--ink);
+}
+.actions {
+  display: none;
+  gap: 8px;
+  padding: 10px;
+  min-height: 0;
+  max-height: calc(min(56dvh, 430px) - 54px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+.actionFold.open .actions { display: grid; }
+.suggestedActions {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.suggestedActions p {
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.actions button {
+  width: 100%;
+  background: rgba(255,255,255,0.11);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+.actions details {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+}
+.destinationGrid {
+  display: grid;
+  gap: 7px;
+  margin-top: 8px;
+}
+.customAction, .rpBox {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+.rpBox {
+  align-items: end;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+}
+.drawer {
+  position: fixed;
+  top: 10px;
+  left: 66px;
+  width: min(320px, calc(100vw - 76px));
+  max-height: calc(100vh - 20px);
+  overflow: auto;
+  background: rgba(16, 22, 22, 0.96);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  z-index: 5;
+  box-shadow: 0 18px 60px rgba(0,0,0,0.36);
+}
+.drawerClose {
+  float: right;
+  width: 36px;
+  min-height: 36px;
+  padding: 0;
+  background: rgba(255,255,255,0.1);
+  color: var(--ink);
+}
+.drawer h3 { margin-bottom: 12px; }
+.drawer p {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+.drawer span { color: var(--muted); text-align: right; }
+.mapRow {
+  width: 100%;
+  margin-bottom: 7px;
+  background: rgba(255,255,255,0.08);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  text-align: left;
+}
+
+@media (max-width: 720px) {
+  .joinCard, .chatInput, .customAction, .rpBox {
+    grid-template-columns: 1fr;
+  }
+  .hero {
+    min-height: 100%;
+    background-position: 58% center;
+  }
+  h1 {
+    font-size: 3.1rem;
+  }
+  .heroContent {
+    padding-bottom: 12px;
+  }
+  .lobbyTop, .lobbyBody {
+    flex-direction: column;
+  }
+  .setupShell, .lobby {
+    padding: 10px;
+  }
+  .gameShell {
+    grid-template-columns: 48px minmax(0, 1fr);
+    width: 100%;
+    max-width: none;
+    height: 100svh;
+    box-shadow: none;
+  }
+  .rail {
+    width: 48px;
+    min-width: 48px;
+    padding: 8px 3px;
+    gap: 7px;
+  }
+  .rail button, .topIcons button {
+    width: 38px;
+    min-height: 38px;
+    font-size: 0.78rem;
+  }
+  .playArea {
+    padding: 6px;
+    gap: 7px;
+  }
+  .coreStats span {
+    min-width: 40px;
+    min-height: 32px;
+    padding: 0 7px;
+    font-size: 0.82rem;
+  }
+  .topIcons button {
+    display: none;
+  }
+  .actionFold.open {
+    left: 6px;
+    right: 6px;
+    bottom: calc(82px + env(safe-area-inset-bottom));
+    max-height: 52dvh;
+  }
+  .actions {
+    max-height: calc(52dvh - 54px);
+  }
+  .sceneHeader h2 {
+    font-size: 1.1rem;
+  }
+  .line {
+    font-size: 0.88rem;
+    line-height: 1.38;
+    padding: 10px;
+  }
+  .drawer {
+    left: 56px;
+    width: calc(100vw - 64px);
+  }
+}
