@@ -9,7 +9,7 @@ const phaseTone = {
   "open-outbreak": "Full survival pressure is allowed: infected attacks, barricades, scarcity, factions."
 };
 
-export function buildGmPayload(room, player, event, visiblePlayers) {
+export function buildGmPayload(room, player, event, visiblePlayers, playerRelationships = {}) {
   const location = locations[player.locationId];
   const npcId = location.npc;
   const npc = npcId ? npcs[npcId] : null;
@@ -17,15 +17,23 @@ export function buildGmPayload(room, player, event, visiblePlayers) {
     system: "You are the AI GM for UHFR: Outbreak Port Harcourt. Narrate and roleplay only. Never mutate stats, inventory, XP, location, relationships, resources, death, injury, mission state, or world phase. Use approved mechanical result as fact.",
     phase: room.phase,
     phaseRule: phaseTone[room.phase],
+    timeline: room.timeline,
+    bases: room.bases,
+    research: room.research,
     player: {
       name: player.name,
+      sex: player.sex,
+      age: player.age,
       classId: player.classId,
+      level: player.level,
+      xp: player.xp,
       location: location.name,
       stats: player.stats,
       core: player.core,
       inventory: player.inventory
     },
     sameLocationPlayers: visiblePlayers.map((p) => ({ name: p.name, classId: p.classId })),
+    playerRelationships,
     recentVisibleStory: visibleLogs(room, player)
       .slice(-12)
       .map((log) => ({
@@ -64,6 +72,10 @@ export function localGmNarration(payload) {
 
   if (event.kind === "player-message") {
     return `The conversation becomes part of the scene at ${place}. ${player.name}'s words reach ${event.recipientName}, and the people nearby read the tone before they understand the details. A brief silence follows, the kind that lets decisions form.`;
+  }
+
+  if (event.kind === "call") {
+    return `The call carries ${player.name}'s voice through the unstable network toward ${event.recipientName}. The words land with a slight delay, but they land: this is no longer shared space, it is shared risk, threaded through a device that could fail at any moment.`;
   }
 
   if (event.kind === "npc") {

@@ -53,7 +53,7 @@ export const faceClaims = [
 ];
 
 export const locations = {
-  "main-gate": { name: "UHFR Main Gate", known: true, pressure: 1, routes: ["security-post", "back-gate"] },
+  "main-gate": { name: "UHFR Main Gate", known: true, pressure: 1, routes: ["security-post", "back-gate", "rumuokoro-junction"] },
   "security-post": { name: "Security Post", known: true, pressure: 1, routes: ["main-gate", "admin-road"], npc: "chief-okoro" },
   "admin-road": { name: "Admin Road", known: true, pressure: 1, routes: ["security-post", "admin-block", "main-walkway"] },
   "admin-block": { name: "Admin Block", known: true, pressure: 1, routes: ["admin-road", "library"], npc: "favour-nwosu" },
@@ -71,8 +71,18 @@ export const locations = {
   "chapel-mosque": { name: "Chapel/Mosque Area", known: true, pressure: 1, routes: ["cafeteria", "staff-quarters"] },
   "staff-quarters": { name: "Staff Quarters", known: false, pressure: 1, routes: ["chapel-mosque", "car-park"] },
   "car-park": { name: "Car Park", known: true, pressure: 1, routes: ["sports-field", "staff-quarters", "back-gate"], npc: "goodluck" },
-  "back-gate": { name: "Back Gate", known: false, pressure: 1, routes: ["car-park", "main-gate"] },
-  "generator-yard": { name: "Generator Yard", known: false, pressure: 2, routes: ["research-lab"] }
+  "back-gate": { name: "Back Gate", known: false, pressure: 1, routes: ["car-park", "main-gate", "creek-road"] },
+  "generator-yard": { name: "Generator Yard", known: false, pressure: 2, routes: ["research-lab"] },
+  "rumuokoro-junction": { name: "Rumuokoro Junction", known: false, minPhase: "local-danger", pressure: 3, routes: ["main-gate", "mile-3-market", "teaching-hospital", "waterworks"] },
+  "mile-3-market": { name: "Mile 3 Market", known: false, minPhase: "local-danger", pressure: 4, routes: ["rumuokoro-junction", "abandoned-pharmacy", "old-warehouse"] },
+  "teaching-hospital": { name: "Port Harcourt Teaching Hospital", known: false, minPhase: "disruption", pressure: 4, routes: ["rumuokoro-junction", "cdc-field-unit"] },
+  "abandoned-pharmacy": { name: "Abandoned Pharmacy", known: false, minPhase: "open-outbreak", pressure: 4, routes: ["mile-3-market", "old-warehouse"] },
+  "old-warehouse": { name: "Old Warehouse", known: false, minPhase: "open-outbreak", pressure: 3, routes: ["mile-3-market", "abandoned-pharmacy", "creek-road"] },
+  "creek-road": { name: "Creek Road", known: false, minPhase: "open-outbreak", pressure: 4, routes: ["back-gate", "old-warehouse", "radio-station"] },
+  "radio-station": { name: "Community Radio Station", known: false, minPhase: "open-outbreak", pressure: 3, routes: ["creek-road", "waterworks"] },
+  "waterworks": { name: "Port Harcourt Waterworks", known: false, minPhase: "open-outbreak", pressure: 3, routes: ["rumuokoro-junction", "radio-station", "safehouse-site"] },
+  "safehouse-site": { name: "Unfinished Staff Estate", known: false, minPhase: "open-outbreak", pressure: 2, routes: ["waterworks", "cdc-field-unit"] },
+  "cdc-field-unit": { name: "Emergency Disease Control Field Unit", known: false, minPhase: "open-outbreak", pressure: 5, routes: ["teaching-hospital", "safehouse-site"] }
 };
 
 export const spawnLocations = [
