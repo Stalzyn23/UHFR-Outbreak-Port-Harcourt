@@ -111,12 +111,12 @@ async function routeApi(req, res, url) {
   }
 
   if (req.method === "POST" && action === "start") {
-    for (const player of Object.values(room.players)) {
-      if (room.logs.some((log) => log.type === "gm" && log.playerId === player.id && log.eventKind === "spawn")) continue;
-      const text = await gmText(room, player, { kind: "spawn" });
-      appendLog(room, { type: "gm", eventKind: "spawn", scope: "private", playerId: player.id, locationId: player.locationId, text });
-      room.suggestedActions ||= {};
-      room.suggestedActions[player.id] = suggestActions(room, player, "spawn");
+    for (const [locationId, players] of groupPlayersByLocation(room)) {
+      if (room.logs.some((log) => log.type === "gm" && log.eventKind === "spawn" && log.locationId === locationId)) continue;
+      appendSceneImage(room, locationId, "location");
+      const text = await gmText(room, players[0], { kind: "spawn", sharedScene: true, players: players.map((item) => item.name) });
+      appendLog(room, { type: "gm", eventKind: "spawn", scope: "location", locationId, text });
+      updateSuggestedForLocation(room, locationId, "spawn");
     }
     room.started = true;
     await persistRooms();
@@ -134,7 +134,28 @@ async function routeApi(req, res, url) {
     const gm = await gmText(room, player, { kind: "rp", text });
     appendLog(room, { type: "gm", scope: "location", playerId: player.id, locationId: player.locationId, text: gm });
     room.suggestedActions ||= {};
-    room.suggestedActions[player.id] = suggestActions(room, player, "rp");
+    updateSuggestedForLocation(room, player.locationId, "rp");
+    await persistRooms();
+    sendJson(res, 200, { room });
+    return;
+  }
+
+  if (req.method === "POST" && action === "player-message") {
+    const recipient = room.players[body.recipientId];
+    const text = String(body.text || "").trim().slice(0, 900);
+    if (!recipient) return sendJson(res, 404, { error: "Recipient not found" });
+    if (recipient.locationId !== player.locationId) return sendJson(res, 400, { error: "That player is not in your current space." });
+    if (!text) return sendJson(res, 400, { error: "Message is required" });
+    appendLog(room, {
+      type: "player",
+      scope: "location",
+      playerId: player.id,
+      locationId: player.locationId,
+      text: `${player.name} to ${recipient.name}: ${text}`
+    });
+    const gm = await gmText(room, player, { kind: "player-message", recipientName: recipient.name, text });
+    appendLog(room, { type: "gm", scope: "location", playerId: player.id, locationId: player.locationId, text: gm });
+    updateSuggestedForLocation(room, player.locationId, "player-message");
     await persistRooms();
     sendJson(res, 200, { room });
     return;
@@ -146,7 +167,7 @@ async function routeApi(req, res, url) {
     const text = await gmText(room, player, { kind: "npc", ...result });
     appendLog(room, { type: "gm", scope: "location", playerId: player.id, locationId: player.locationId, text });
     room.suggestedActions ||= {};
-    room.suggestedActions[player.id] = suggestActions(room, player, "npc");
+    updateSuggestedForLocation(room, player.locationId, "npc");
     await persistRooms();
     sendJson(res, 200, { room });
     return;
@@ -165,6 +186,7 @@ async function routeApi(req, res, url) {
   if (req.method === "POST" && action === "continue-travel") {
     const result = continueTravel(room, player.id);
     const text = await gmText(room, room.players[player.id], { kind: "travel", ...result });
+    if (result.ok) appendSceneImage(room, room.players[player.id].locationId, "private", player.id);
     appendLog(room, { type: "gm", scope: "private", playerId: player.id, locationId: room.players[player.id].locationId, text });
     room.suggestedActions ||= {};
     room.suggestedActions[player.id] = suggestActions(room, room.players[player.id], "travel");
@@ -181,13 +203,75 @@ async function routeApi(req, res, url) {
     const gm = await gmText(room, player, { kind: "custom", text, ...result });
     appendLog(room, { type: "gm", scope: "location", playerId: player.id, locationId: player.locationId, text: gm });
     room.suggestedActions ||= {};
-    room.suggestedActions[player.id] = suggestActions(room, player, "custom");
+    updateSuggestedForLocation(room, player.locationId, "custom");
     await persistRooms();
     sendJson(res, 200, { room });
     return;
   }
 
   sendJson(res, 404, { error: "Unknown room action" });
+}
+
+function groupPlayersByLocation(room) {
+  const groups = new Map();
+  for (const player of Object.values(room.players)) {
+    if (!groups.has(player.locationId)) groups.set(player.locationId, []);
+    groups.get(player.locationId).push(player);
+  }
+  return groups.entries();
+}
+
+function updateSuggestedForLocation(room, locationId, reason) {
+  room.suggestedActions ||= {};
+  for (const player of Object.values(room.players).filter((item) => item.locationId === locationId)) {
+    room.suggestedActions[player.id] = suggestActions(room, player, reason);
+  }
+}
+
+function appendSceneImage(room, locationId, scope, playerId = null) {
+  const location = locations[locationId];
+  const key = `${room.phase}:${locationId}:${room.logs.filter((log) => log.type === "scene-image" && log.locationId === locationId).length}`;
+  appendLog(room, {
+    type: "scene-image",
+    scope,
+    playerId,
+    locationId,
+    text: `${location.name} scene`,
+    image: sceneImageDataUrl(location, room.phase, key)
+  });
+}
+
+function sceneImageDataUrl(location, phase, key) {
+  const colors = {
+    normalcy: ["#21372f", "#f1bd55", "#d7e5d7"],
+    unease: ["#26353d", "#d6a24a", "#b8c6c6"],
+    disruption: ["#332f3d", "#d45c48", "#ddd2c6"],
+    "local-danger": ["#3b2426", "#d45c48", "#f1bd55"],
+    "open-outbreak": ["#1a1718", "#9c2f2f", "#d8d2c2"]
+  }[phase] || ["#21372f", "#f1bd55", "#d7e5d7"];
+  const seed = [...key].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  const sunX = 35 + (seed % 80);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 260" role="img" aria-label="${escapeXml(location.name)}">
+    <defs>
+      <linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="${colors[0]}"/><stop offset="1" stop-color="#080d0d"/></linearGradient>
+      <filter id="grain"><feTurbulence baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter>
+    </defs>
+    <rect width="640" height="260" fill="url(#g)"/>
+    <circle cx="${sunX}" cy="58" r="26" fill="${colors[1]}" opacity=".82"/>
+    <path d="M0 190 C120 150 180 205 310 166 S520 150 640 184 L640 260 L0 260Z" fill="#101818" opacity=".94"/>
+    <path d="M70 172 L150 110 L245 172 Z M260 174 L352 94 L472 174 Z" fill="${colors[2]}" opacity=".18"/>
+    <rect x="90" y="135" width="110" height="72" rx="4" fill="#dfe8df" opacity=".22"/>
+    <rect x="250" y="126" width="170" height="86" rx="5" fill="#f4efe4" opacity=".18"/>
+    <path d="M20 220 H620" stroke="${colors[1]}" stroke-width="3" opacity=".6"/>
+    <text x="28" y="236" fill="#f7f3ea" font-family="Arial, sans-serif" font-size="24" font-weight="700">${escapeXml(location.name)}</text>
+    <text x="28" y="42" fill="#f1bd55" font-family="Arial, sans-serif" font-size="14" font-weight="700">${escapeXml(phase.toUpperCase())}</text>
+    <rect width="640" height="260" filter="url(#grain)" opacity=".06"/>
+  </svg>`;
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+}
+
+function escapeXml(value) {
+  return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[char]);
 }
 
 function suggestActions(room, player, reason) {
@@ -268,6 +352,9 @@ function gmSystemPrompt() {
     "You are the AI GM for UHFR: Outbreak Port Harcourt, a story-first multiplayer RP survival game.",
     "Narrate the living world and roleplay NPCs in grounded Nigerian campus tone.",
     "React directly to the player's exact RP line or approved action. Continue the scene forward.",
+    "When multiple players are in the same location, treat them as sharing one scene. Give one consistent narration for everyone there; NPC dialogue must not contradict itself across players.",
+    "Player-to-player messages in the same location are in-scene conversation. Narrate the exchange so all same-location players understand what was said, and let the conversation influence the next pressure point.",
+    "You may logically bring an NPC into a scene only if their location, role, route, or reason for being nearby makes sense. Do not teleport important NPCs without plausible cause.",
     "Use the current outbreak phase strictly. In normalcy, do not introduce zombies, hordes, gunfire, mass panic, or open collapse.",
     "You may use subtle unease, gossip, clinic tension, phone messages, staff nerves, crowd behavior, and location texture.",
     "Never mutate mechanics. Do not decide stats, inventory, XP, travel, injury, death, relationships, resources, mission state, or phase.",

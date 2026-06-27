@@ -62,6 +62,10 @@ export function localGmNarration(payload) {
     return ambientRpReply(place, phase, event.text);
   }
 
+  if (event.kind === "player-message") {
+    return `The conversation becomes part of the scene at ${place}. ${player.name}'s words reach ${event.recipientName}, and the people nearby read the tone before they understand the details. A brief silence follows, the kind that lets decisions form.`;
+  }
+
   if (event.kind === "npc") {
     return npcReply(event.npc, phase, event.interactionType);
   }

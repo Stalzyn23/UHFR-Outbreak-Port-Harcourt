@@ -5,7 +5,7 @@ const app = document.querySelector("#app");
 let view = "landing";
 let room = null;
 let currentPlayerId = localStorage.getItem("uhfr-current-player");
-let draft = { roomCode: localStorage.getItem("uhfr-room-code") || "", name: "", age: "", classId: "medic", faceClaimId: "medical-student" };
+let draft = { roomCode: localStorage.getItem("uhfr-room-code") || "", name: "", age: "", classId: "medic", faceClaimId: "medical-student", faceClaimImage: null };
 let openDrawer = null;
 let actionsOpen = false;
 let audioOn = false;
@@ -125,6 +125,10 @@ function renderCharacter() {
               </label>
             `).join("")}
           </div>
+          <label>Upload face claim
+            <input name="faceClaimUpload" type="file" accept="image/*" />
+          </label>
+          ${draft.faceClaimImage ? `<div class="customFacePreview"><img src="${draft.faceClaimImage}" alt="Uploaded face claim preview" /><span>Custom face claim selected</span></div>` : ""}
           <button type="submit">${busy ? "Joining..." : "Join session"}</button>
         </form>
       </section>
@@ -175,14 +179,14 @@ function renderGame() {
   const npc = npcAt(player.locationId);
   const sameHere = sameLocationPlayers(room, player);
   const logs = visibleLogs(room, player).slice(-60);
-  const faceImage = faceClaims.find((face) => face.id === player.faceClaimId)?.image;
+  const faceImage = player.faceClaimImage || faceClaims.find((face) => face.id === player.faceClaimId)?.image;
   const suggested = room.suggestedActions?.[player.id] || [];
   rememberStoryScroll();
   mount(`
     <main class="gameShell">
       <aside class="rail">
         <button class="avatarButton" data-drawer="profile" title="Profile">${faceImage ? `<img src="${faceImage}" alt="${escapeAttr(player.name)}" />` : initials(player.name)}</button>
-        <button data-action="toggle-audio" title="Audio">${audioOn ? "♪" : "♪"}</button>
+        <button data-action="toggle-audio" title="Audio">${audioOn ? "ON" : "AUD"}</button>
         <button data-drawer="stats" title="Class stats">ST</button>
         <button data-drawer="world" title="World">WD</button>
         <button data-drawer="survivors" title="Survivors">SV</button>
@@ -302,7 +306,7 @@ function drawer(player, loc, npc) {
     profile: `<h3>${escapeHtml(player.name)}</h3><p>${classes[player.classId].label}, age ${player.age}</p><p class="muted">${faceClaims.find((f) => f.id === player.faceClaimId)?.label}</p>`,
     stats: `<h3>Class stats</h3>${Object.entries(player.stats).map(([k, v]) => `<p><b>${label(k)}</b><span>${v}</span></p>`).join("")}`,
     world: `<h3>World</h3><p><b>Phase</b><span>${room.phase}</span></p><p><b>Power</b><span>${room.resources.power}</span></p><p><b>Network</b><span>${room.resources.network}</span></p><p><b>OpenAI GM</b><span>${networkInfo?.openai ? "enabled" : "fallback"}</span></p>`,
-    survivors: `<h3>Survivors</h3>${Object.values(room.players).map((p) => `<p><b>${escapeHtml(p.name)}</b><span>${p.locationId === player.locationId ? "with you" : "unknown / last seen"}</span></p>`).join("")}`,
+    survivors: `<h3>Survivors</h3>${survivorDrawer(player)}`,
     inventory: `<h3>Inventory</h3>${player.inventory.map((i) => `<p><b>${escapeHtml(i)}</b></p>`).join("")}`,
     pressure: `<h3>${loc.name}</h3><p><b>Pressure</b><span>${loc.pressure}/5</span></p>${npc ? `<p><b>Nearby</b><span>${npc.name}</span></p>${relation ? `<p><b>Trust</b><span>${relation.trust}</span></p>` : ""}` : `<p class="muted">No important NPC in sight.</p>`}`,
     map: `<h3>Known map</h3>${known.map(([id, item]) => `<button class="mapRow" data-action="set-travel" data-location="${id}">${item.name}${id === player.locationId ? " | here" : ""}</button>`).join("")}`
@@ -313,12 +317,37 @@ function drawer(player, loc, npc) {
 
 function storyLine(log) {
   const cls = `line ${log.type || "world"}`;
+  if (log.type === "scene-image") {
+    return `<article class="sceneImage"><img src="${log.image}" alt="${escapeAttr(log.text || "Scene image")}" /><span>${escapeHtml(log.text || "Scene image")}</span></article>`;
+  }
   return `<article class="${cls}"><p>${escapeHtml(log.text)}</p></article>`;
 }
 
 function playerCard(player, showLocation) {
-  const image = faceClaims.find((face) => face.id === player.faceClaimId)?.image;
+  const image = player.faceClaimImage || faceClaims.find((face) => face.id === player.faceClaimId)?.image;
   return `<article class="playerCard"><span>${image ? `<img src="${image}" alt="${escapeAttr(player.name)}" />` : initials(player.name)}</span><div><b>${escapeHtml(player.name)}</b><small>${classes[player.classId].label}${showLocation ? ` | ${locations[player.locationId].name}` : ""}</small></div></article>`;
+}
+
+function survivorDrawer(player) {
+  return Object.values(room.players).map((other) => {
+    const samePlace = other.locationId === player.locationId;
+    const image = other.faceClaimImage || faceClaims.find((face) => face.id === other.faceClaimId)?.image;
+    return `
+      <section class="survivorRow">
+        <div class="survivorMini">
+          <span>${image ? `<img src="${image}" alt="${escapeAttr(other.name)}" />` : initials(other.name)}</span>
+          <div><b>${escapeHtml(other.name)}</b><small>${samePlace ? "with you" : "unknown / last seen"}</small></div>
+        </div>
+        ${samePlace && other.id !== player.id ? `
+          <form class="messagePlayer" data-action="player-message">
+            <input type="hidden" name="recipientId" value="${escapeAttr(other.id)}" />
+            <input name="message" placeholder="Say something..." autocomplete="off" />
+            <button>Send</button>
+          </form>
+        ` : ""}
+      </section>
+    `;
+  }).join("");
 }
 
 function bindCommon() {
@@ -354,6 +383,14 @@ function bindCommon() {
       draft[input.name] = input.name === "roomCode" ? input.value.toUpperCase() : input.value;
     });
   });
+  document.querySelectorAll("input[name=faceClaimUpload]").forEach((input) => {
+    input.addEventListener("change", async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      draft.faceClaimImage = await resizeImage(file, 220);
+      render();
+    });
+  });
 }
 
 async function handleAction(action, el) {
@@ -377,12 +414,19 @@ async function handleAction(action, el) {
     if (action === "toggle-audio") await setAudio(!audioOn);
     if (action === "toggle-actions") actionsOpen = !actionsOpen;
     if (action === "rp-submit") await postAction("rp", { text: String(new FormData(el).get("rp") || "").trim() });
+    if (action === "player-message") {
+      const data = new FormData(el);
+      await postAction("player-message", {
+        recipientId: String(data.get("recipientId") || ""),
+        text: String(data.get("message") || "").trim()
+      });
+    }
     if (action === "npc-talk") await postAction("npc", { npcId: el.dataset.npc, kind: el.dataset.kind });
     if (action === "set-travel") await postAction("travel-goal", { locationId: el.dataset.location });
     if (action === "continue-travel") await postAction("continue-travel", {});
     if (action === "custom-action") await postAction("custom", { text: String(new FormData(el).get("custom") || "").trim() });
     if (action === "suggested-custom") await postAction("custom", { text: el.dataset.text || "" });
-    if (["npc-talk", "set-travel", "continue-travel", "custom-action", "suggested-custom"].includes(action)) {
+    if (["npc-talk", "set-travel", "continue-travel", "custom-action", "suggested-custom", "player-message"].includes(action)) {
       actionsOpen = false;
       if (action === "set-travel") openDrawer = null;
     }
@@ -400,7 +444,8 @@ async function joinLobby(form) {
     name: String(data.get("name") || "").trim(),
     age: String(data.get("age") || ""),
     classId: String(data.get("classId") || draft.classId),
-    faceClaimId: String(data.get("faceClaimId") || draft.faceClaimId)
+    faceClaimId: String(data.get("faceClaimId") || draft.faceClaimId),
+    faceClaimImage: draft.faceClaimImage
   };
   await withBusy(async () => {
     const data = await api(`/api/rooms/${encodeURIComponent(draft.roomCode)}/join`, {
@@ -462,6 +507,30 @@ function escapeHtml(value) {
 
 function escapeAttr(value) {
   return escapeHtml(value).replace(/`/g, "&#096;");
+}
+
+function resizeImage(file, size) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Could not read image."));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error("Could not load image."));
+      image.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const context = canvas.getContext("2d");
+        const side = Math.min(image.width, image.height);
+        const sx = (image.width - side) / 2;
+        const sy = (image.height - side) / 2;
+        context.drawImage(image, sx, sy, side, side, 0, 0, size, size);
+        resolve(canvas.toDataURL("image/jpeg", 0.78));
+      };
+      image.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 function isTyping() {

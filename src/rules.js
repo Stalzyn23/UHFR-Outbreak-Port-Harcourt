@@ -30,7 +30,7 @@ export function saveRoom(room) {
   localStorage.setItem(roomKey(room.code), JSON.stringify(room));
 }
 
-export function createPlayer({ name, age, classId, faceClaimId }) {
+export function createPlayer({ name, age, classId, faceClaimId, faceClaimImage }) {
   const klass = classes[classId];
   const id = crypto.randomUUID();
   const locationId = spawnLocations[Math.floor(Math.random() * spawnLocations.length)];
@@ -40,6 +40,9 @@ export function createPlayer({ name, age, classId, faceClaimId }) {
     age: Number(age),
     classId,
     faceClaimId,
+    faceClaimImage: typeof faceClaimImage === "string" && faceClaimImage.startsWith("data:image/") && faceClaimImage.length < 260000
+      ? faceClaimImage
+      : null,
     level: 1,
     locationId,
     lastKnownLocation: locationId,
