@@ -1,4 +1,4 @@
-import { classes, difficulty, faceClaims, locations, npcs, phases, spawnLocations } from "./data.js";
+import { classes, difficulty, faceClaims, locations, npcs, phases } from "./data.js";
 
 const roomKey = (code) => `uhfr-room:${code.toUpperCase()}`;
 export const playerRelationshipStatuses = ["neutral", "acquaintance", "friend", "lover", "mutual-partners", "enemy", "adversary"];
@@ -6,7 +6,7 @@ export const playerRelationshipStatuses = ["neutral", "acquaintance", "friend", 
 export function createRoom(code) {
   return {
     code: code.toUpperCase(),
-    phase: "normalcy",
+    phase: "unease",
     clock: { day: 1, time: "15:20" },
     timeline: { progress: 0, turn: 0, lastAdvancedBy: null, lastAdvancedAt: null },
     recaps: [],
@@ -73,7 +73,7 @@ export function createPlayer({ name, age, sex, classId, faceClaimId, faceClaimIm
   const safeSex = ["male", "female"].includes(sex) ? sex : "female";
   const klass = classes[safeClassId];
   const id = crypto.randomUUID();
-  const locationId = spawnLocations[Math.floor(Math.random() * spawnLocations.length)];
+  const locationId = startingLocationForClass(safeClassId);
   return {
     id,
     name: safeName,
@@ -100,12 +100,17 @@ export function createPlayer({ name, age, sex, classId, faceClaimId, faceClaimIm
   };
 }
 
+function startingLocationForClass(classId) {
+  if (classId === "security") return "security-post";
+  if (classId === "mechanic") return "generator-yard";
+  return "lecture-hall";
+}
+
 function generatePhoneNumber() {
   return `080${Math.floor(10000000 + Math.random() * 90000000)}`;
 }
 
 export function addPlayer(room, player) {
-  placePlayerForRoomSpawn(room, player);
   room.players[player.id] = player;
   room.logs.push({
     id: crypto.randomUUID(),
@@ -118,23 +123,6 @@ export function addPlayer(room, player) {
   return room;
 }
 
-function placePlayerForRoomSpawn(room, player) {
-  const existing = Object.values(room.players || {});
-  if (!existing.length) return;
-
-  const anchor = existing[Math.floor(Math.random() * existing.length)];
-  const anchorRoutes = (locations[anchor.locationId]?.routes || []).filter((id) => spawnLocations.includes(id));
-  const clusteredLocations = [anchor.locationId, ...anchorRoutes];
-
-  if (clusteredLocations.length && Math.random() < 0.68) {
-    player.locationId = clusteredLocations[Math.floor(Math.random() * clusteredLocations.length)];
-    player.lastKnownLocation = player.locationId;
-    player.travelGoal = null;
-    player.route = [];
-    player.routeStep = 0;
-  }
-}
-
 export function applyRpEffects(room, playerId, text, sceneText = "") {
   const player = room.players[playerId];
   if (!player) return [];
@@ -143,15 +131,19 @@ export function applyRpEffects(room, playerId, text, sceneText = "") {
   const combined = `${lower} ${sceneLower}`;
   const notes = [];
 
-  player.core.stamina = Math.max(0, player.core.stamina - 2);
+  if (/(run|rush|force|fight|drag|carry|climb|barricade|sprint|push)/.test(lower)) {
+    player.core.stamina = Math.max(0, player.core.stamina - 1);
+  }
 
   const eatingIntent = /\b(eat|eats|ate|chew|swallow|take a bite|start eating|finish eating|accept (the )?(food|meal|plate)|eat it|eat some|drink garri)\b/.test(lower);
   const foodPresent = /(food|meal|rice|beans|plantain|bread|snack|biscuit|plate|swallow|garri|yam|suya|meat pie)/.test(combined);
   if (eatingIntent && foodPresent) {
     const before = player.core.hunger;
+    const staminaBefore = player.core.stamina;
     player.core.hunger = Math.max(0, player.core.hunger - 18);
+    player.core.stamina = Math.min(100, player.core.stamina + 8);
     player.core.morale = Math.min(100, player.core.morale + 4);
-    notes.push(`Food helped. Hunger ${before} -> ${player.core.hunger}.`);
+    notes.push(`Food helped. Hunger ${before} -> ${player.core.hunger}. Stamina ${staminaBefore} -> ${player.core.stamina}.`);
   }
 
   const drinkingIntent = /\b(drink|drinks|drank|sip|gulp|rehydrate|take a sip|drink it|drink some)\b/.test(lower);
@@ -177,6 +169,38 @@ export function applyRpEffects(room, playerId, text, sceneText = "") {
   }
 
   return notes;
+}
+
+export function consumeInventoryItem(room, playerId, item) {
+  const player = room.players[playerId];
+  if (!player) return { ok: false, reason: "Player not found." };
+  const index = player.inventory.indexOf(item);
+  if (index === -1) return { ok: false, reason: "That item is not in your inventory." };
+
+  const lower = item.toLowerCase();
+  if (/(snack|biscuit|crackers|food|bread|rice|beans|plantain|meal)/.test(lower)) {
+    const hungerBefore = player.core.hunger;
+    const staminaBefore = player.core.stamina;
+    player.core.hunger = Math.max(0, player.core.hunger - 20);
+    player.core.stamina = Math.min(100, player.core.stamina + 10);
+    player.core.morale = Math.min(100, player.core.morale + 3);
+    player.inventory.splice(index, 1);
+    return { ok: true, consumed: true, text: `You eat ${item}. Hunger ${hungerBefore} -> ${player.core.hunger}. Stamina ${staminaBefore} -> ${player.core.stamina}.` };
+  }
+
+  if (/(water|sachet|bottle|juice|zobo|drink)/.test(lower)) {
+    const thirstBefore = player.core.thirst;
+    const staminaBefore = player.core.stamina;
+    player.core.thirst = Math.max(0, player.core.thirst - 24);
+    player.core.stamina = Math.min(100, player.core.stamina + 4);
+    player.inventory.splice(index, 1);
+    return { ok: true, consumed: true, text: `You drink ${item}. Thirst ${thirstBefore} -> ${player.core.thirst}. Stamina ${staminaBefore} -> ${player.core.stamina}.` };
+  }
+
+  return { ok: true, consumed: false, text: item === "phone"
+    ? "You check your phone. Contacts, campus messages, and calls are available if the network holds."
+    : `You check your ${item}.`
+  };
 }
 
 function findCarryableResource(lower) {
@@ -372,7 +396,7 @@ export function validateCustomAction(room, playerId, text) {
   } else if (/(fight|hold|barricade|push|drag|restrain)/.test(lower)) {
     skill = "strength";
     level = phaseIndex >= 3 ? "skilled" : "trained";
-    requiredClass = "fighter";
+    requiredClass = /(restrain|crowd|security|radio|gate|guard)/.test(lower) ? "security" : "fighter";
   } else if (/(calm|convince|persuade|organize|negotiate|recruit|community)/.test(lower)) {
     skill = "charisma";
     level = "trained";
@@ -394,10 +418,16 @@ export function validateCustomAction(room, playerId, text) {
   const hasTools = requiredTools.every((item) => player.inventory.includes(item));
   const stressPenalty = player.core.stress > 60 ? 3 : player.core.stress > 35 ? 1 : 0;
   const fatiguePenalty = player.core.stamina < 25 ? 4 : player.core.stamina < 50 ? 2 : 0;
-  const score = player.stats[skill] + player.level * 2 - stressPenalty - fatiguePenalty;
-  const allowed = hasClass && hasTools && score >= target;
+  const classBonus = requiredClass && player.classId === requiredClass ? 5 : 0;
+  const toolBonus = hasTools ? 2 : -5;
+  const score = player.stats[skill] + player.level * 2 + classBonus + toolBonus - stressPenalty - fatiguePenalty;
+  const chance = hasClass && hasTools
+    ? Math.max(10, Math.min(92, 55 + (score - target) * 7 + (player.stats.luck - 10)))
+    : Math.max(3, Math.min(28, 18 + (score - target) * 3));
+  const roll = Math.floor(Math.random() * 100) + 1;
+  const allowed = roll <= chance;
 
-  player.core.stamina = Math.max(0, player.core.stamina - 6);
+  player.core.stamina = Math.max(0, player.core.stamina - 4);
   player.core.stress = Math.min(100, player.core.stress + (allowed ? 2 : 7));
   if (allowed) applyLongTermProgress(room, player, lower);
 
@@ -408,11 +438,13 @@ export function validateCustomAction(room, playerId, text) {
     level,
     target,
     score,
+    chance,
+    roll,
     requiredClass,
     requiredTools,
     reason: allowed
-      ? "The rules engine approves the attempt."
-      : `Blocked or failed: needs ${difficulty[level].label}${requiredClass ? ` ${classes[requiredClass].label}` : ""}${requiredTools.length ? ` and ${requiredTools.join(", ")}` : ""}.`
+      ? `The rules engine approves the attempt (${chance}% chance, rolled ${roll}).`
+      : `The attempt fails or backfires (${chance}% chance, rolled ${roll})${requiredClass && !hasClass ? `; ${classes[requiredClass].label} training would have helped` : ""}${requiredTools.length && !hasTools ? `; missing ${requiredTools.join(", ")}` : ""}.`
   };
 }
 
@@ -446,9 +478,10 @@ export function advanceTimeline(room, playerId, effort = 1, reason = "activity")
   player.xp = Number(player.xp || 0) + effort * 5;
   player.lastActiveAt = new Date().toISOString();
   player.level = Math.max(1, Math.floor(player.xp / 35) + 1);
-  const turnFatigue = Math.floor(nextTurn / 8);
-  const stressGain = Math.max(1, Math.ceil(effort / 2) + Math.floor(nextTurn / 10));
-  player.core.stamina = Math.max(0, player.core.stamina - Math.max(1, effort + turnFatigue));
+  const turnFatigue = Math.floor(nextTurn / 10);
+  const stressGain = Math.max(1, Math.ceil(effort / 3) + Math.floor(nextTurn / 12));
+  const staminaLoss = reason === "rp" || reason === "player-message" ? 0 : Math.max(1, Math.ceil(effort / 2) + turnFatigue);
+  player.core.stamina = Math.max(0, player.core.stamina - staminaLoss);
   player.core.stress = Math.min(100, player.core.stress + stressGain);
   if (effort >= 3 || nextTurn % 4 === 0) player.core.hunger = Math.min(100, player.core.hunger + 1);
   if (effort >= 2 || nextTurn % 3 === 0) player.core.thirst = Math.min(100, player.core.thirst + 1);
@@ -465,7 +498,7 @@ export function maybeAdvancePhase(room, reason = "activity") {
   room.research ||= { cureProgress: 0, leads: [] };
   const count = room.timeline.progress;
   const current = phases.indexOf(room.phase);
-  const nextIndex = count >= 55 ? 4 : count >= 34 ? 3 : count >= 20 ? 2 : count >= 9 ? 1 : 0;
+  const nextIndex = count >= 18 ? 4 : count >= 10 ? 3 : count >= 2 ? 2 : 1;
   if (nextIndex > current) {
     room.phase = phases[nextIndex];
     room.globalEvents.push({ phase: room.phase, at: room.logs.length, reason });
@@ -482,7 +515,7 @@ export function maybeAdvancePhase(room, reason = "activity") {
 
 function phaseAnnouncement(phase) {
   if (phase === "unease") return "Across UHFR, phones start buzzing harder than normal. Nobody calls it an emergency yet.";
-  if (phase === "disruption") return "A power flicker moves through campus. Conversations pause, then return too loudly.";
+  if (phase === "disruption") return "A student who should never have reached class stumbles into UHFR carrying the world's outbreak inside a fresh bite. The classroom stops being a classroom and becomes the first test of who notices, who freezes, and who lies.";
   if (phase === "local-danger") return "The first confirmed violent incident stops being a rumor. Campus security starts sealing routes, and people begin choosing sides.";
   if (phase === "open-outbreak") return "UHFR is no longer the edge of the story. The outbreak has spilled into Port Harcourt, and survival now means routes, bases, communities, and cure leads.";
   return "The timeline shifts.";

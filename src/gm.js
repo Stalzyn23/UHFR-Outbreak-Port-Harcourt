@@ -3,8 +3,8 @@ import { visibleLogs } from "./rules.js";
 
 const phaseTone = {
   normalcy: "Keep campus life ordinary. Use gossip, routine, small unease. Do not show zombies, hordes, gunfire, or mass panic.",
-  unease: "Let wrongness leak in through coughs, calls, nervous staff, and rumors.",
-  disruption: "Systems can fail: locked doors, flickering power, confused crowds, missing staff.",
+  unease: "The outbreak is already global, but UHFR is still pretending it is outside. Let wrongness leak in through coughs, calls, nervous staff, and rumors.",
+  disruption: "An already-bitten person has entered UHFR and reaches class. Systems can fail: locked doors, flickering power, confused crowds, missing staff.",
   "local-danger": "Direct danger may happen in one place. Keep information local unless broadcast.",
   "open-outbreak": "Full survival pressure is allowed: infected attacks, barricades, scarcity, factions."
 };
@@ -60,7 +60,10 @@ export function localGmNarration(payload) {
   const place = player.location;
 
   if (event.kind === "spawn") {
-    return `You come into the rhythm of UHFR at ${place}. The day still looks ordinary: footsteps on concrete, phones in hands, somebody laughing too loudly nearby. Still, something in the air feels held back, like campus is waiting for a message nobody wants to receive.`;
+    if (place === "Lecture Hall Complex") {
+      return `You are in class when the unease finally finds a door. The lecturer is still trying to hold the room together, but phones keep lighting under desks with clips from outside Port Harcourt: airports, markets, hospitals, people running before anyone agrees what they are running from. Then the back door opens. A student stumbles in late, sweating through his shirt, one hand clamped around a bite mark he is trying badly to hide.`;
+    }
+    return `You come into UHFR at ${place}. The campus is not collapsing yet, but the world outside is already sending warnings through phones, staff whispers, and nervous security movement. Something dangerous has found its way toward campus, and people are still calling it rumor because rumor is easier to survive for one more minute.`;
   }
 
   if (event.kind === "rp") {
@@ -71,7 +74,7 @@ export function localGmNarration(payload) {
   }
 
   if (event.kind === "player-message") {
-    return `The conversation becomes part of the scene at ${place}. ${player.name}'s words reach ${event.recipientName}, and the people nearby read the tone before they understand the details. A brief silence follows, the kind that lets decisions form.`;
+    return `The GM watches the conversation without stepping over it. The next interruption will come from the room, an NPC, or the pressure outside.`;
   }
 
   if (event.kind === "call") {

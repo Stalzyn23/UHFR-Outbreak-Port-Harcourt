@@ -9,6 +9,7 @@ import {
   advanceTimeline,
   appendLog,
   applyRpEffects,
+  consumeInventoryItem,
   continueTravel,
   createPlayer,
   createRoom,
@@ -190,10 +191,8 @@ async function routeApi(req, res, url) {
       locationId: player.locationId,
       text: `${player.name} to ${recipient.name}: ${text}`
     });
-    const gm = await gmText(room, player, { kind: "player-message", recipientName: recipient.name, text });
-    appendLog(room, { type: "gm", scope: "location", playerId: player.id, locationId: player.locationId, text: gm });
     await advanceAndMaybeRecap(room, player, 1, "player-message");
-    updateSuggestedForLocation(room, player.locationId, "player-message", gm);
+    updateSuggestedForLocation(room, player.locationId, "player-message", text);
     await persistRooms();
     sendJson(res, 200, { room });
     return;
@@ -240,10 +239,8 @@ async function routeApi(req, res, url) {
   if (req.method === "POST" && action === "use-item") {
     const item = String(body.item || "").trim().slice(0, 80);
     if (!item || !player.inventory.includes(item)) return sendJson(res, 400, { error: "That item is not in your inventory." });
-    const text = item === "phone"
-      ? "You check your phone. Contacts, campus messages, and calls are available if the network holds."
-      : `You check your ${item}.`;
-    appendLog(room, { type: "system", scope: "private", playerId: player.id, locationId: player.locationId, text });
+    const result = consumeInventoryItem(room, player.id, item);
+    appendLog(room, { type: "system", scope: "private", playerId: player.id, locationId: player.locationId, text: result.text });
     await persistRooms();
     sendJson(res, 200, { room });
     return;
@@ -659,18 +656,19 @@ function suggestActions(room, player, reason, sceneText = "") {
     actions.push({ label: `Continue toward ${locations[player.travelGoal].name}`, action: "continue-travel" });
   }
 
-  if (location?.npc) {
+  for (const action of sceneActions(scene, player, location, room)) actions.push(action);
+
+  if (location?.npc && actions.length < 6) {
     actions.push({ label: `Talk to ${npcLabel(location.npc)}`, action: "npc-talk", npcId: location.npc, kind: "talk" });
     actions.push({ label: `Ask ${npcLabel(location.npc)} what they know`, action: "npc-talk", npcId: location.npc, kind: "ask" });
   }
 
-  for (const action of sceneActions(scene, player, location)) actions.push(action);
-
   if (sameLocationPlayers(room, player).length > 1) {
-    actions.push({ label: "Compare stories quietly", action: "suggested-custom", text: "quietly compare what we noticed with the nearby player" });
+    actions.push({ label: "Signal another player quietly", action: "suggested-custom", text: "quietly signal a nearby player and coordinate without drawing the room's attention" });
   }
 
-  for (const routeId of (location?.routes || []).filter((id) => isLocationAvailable(room, id)).slice(0, 2)) {
+  const routeLimit = actions.length >= 5 ? 1 : 2;
+  for (const routeId of (location?.routes || []).filter((id) => isLocationAvailable(room, id)).slice(0, routeLimit)) {
     if (isLocationAvailable(room, routeId)) {
       actions.push({ label: `Head toward ${locations[routeId].name}`, action: "set-travel", locationId: routeId });
     }
@@ -685,7 +683,10 @@ function suggestActions(room, player, reason, sceneText = "") {
     actions.push({ label: "Search for cure leads", action: "suggested-custom", text: "search for samples, records, or medical leads that could help fight the virus" });
   }
 
-  if (actions.length < 4) actions.push({ label: "Press for the truth", action: "suggested-custom", text: "press for the truth without causing a scene" });
+  if (actions.length < 4) {
+    actions.push({ label: "Read the room", action: "suggested-custom", text: "study the room for the person, exit, or clue everyone else is missing" });
+    actions.push({ label: "Make a risky choice", action: "suggested-custom", text: "make a bold choice that could help me or make the situation worse" });
+  }
 
   return dedupeActions(actions).slice(0, 7);
 }
@@ -698,8 +699,27 @@ function recentSceneText(room, player) {
     .join(" ");
 }
 
-function sceneActions(scene, player, location) {
+function sceneActions(scene, player, location, room) {
   const actions = [];
+  if (player.locationId === "lecture-hall" && phases.indexOf(room.phase) <= phases.indexOf("disruption")) {
+    actions.push({ label: "Watch the bitten student", action: "suggested-custom", text: "watch the late student closely and look for signs of a hidden bite or fever" });
+    actions.push({ label: "Warn the lecturer quietly", action: "suggested-custom", text: "quietly warn the lecturer that the late student may be sick or bitten" });
+    actions.push({ label: "Move toward the exit", action: "suggested-custom", text: "shift toward the classroom exit without causing panic" });
+    actions.push({ label: "Confront him openly", action: "suggested-custom", text: "openly confront the late student about the bite and risk causing panic" });
+  }
+  if (player.classId === "security" && /(bite|bitten|student|class|crowd|door|gate|radio|security)/.test(scene)) {
+    actions.push({ label: "Radio for campus lockdown", action: "suggested-custom", text: "use my security radio to request a quiet lockdown and medical backup" });
+    actions.push({ label: "Control the exit", action: "suggested-custom", text: "control the nearest exit and keep the crowd from crushing each other" });
+  }
+  if (player.classId === "mechanic" && /(power|generator|light|flicker|lab|yard|radio|door|lock)/.test(scene)) {
+    actions.push({ label: "Check the power fault", action: "suggested-custom", text: "inspect the power fault and look for a safe way to keep lights or doors working" });
+    actions.push({ label: "Find a tool route", action: "suggested-custom", text: "look for a maintenance route or tool access that others would miss" });
+  }
+  if (/(bite|bitten|blood|sweat|stagger|stumble|wound|fever|shaking)/.test(scene)) {
+    actions.push({ label: "Identify the bite", action: "suggested-custom", text: "look for the bite and judge how dangerous the person is without touching them" });
+    actions.push({ label: "Separate him from the class", action: "suggested-custom", text: "try to separate the bitten student from the rest of the class without triggering panic" });
+    actions.push({ label: "Pretend nothing is wrong", action: "suggested-custom", text: "pretend nothing is wrong and let the situation keep moving, even if that is dangerous" });
+  }
   if (/(how do you respond|waiting for your take|looks at you expectantly|asks you|question)/.test(scene)) {
     actions.push({ label: "Tell them what you know", action: "suggested-custom", text: "answer honestly and tell them what I know" });
     actions.push({ label: "Ask what they heard first", action: "suggested-custom", text: "ask them what they heard first before revealing anything" });
@@ -805,10 +825,12 @@ function gmSystemPrompt() {
     "The story can grow beyond UHFR into Port Harcourt: streets, hospitals, markets, safehouses, communities, hostile groups, resources, and cure investigation are valid once the timeline and routes allow it.",
     "Respect shared timeline progression. Active players may push the world phase forward and gain XP/levels; inactive players return to the current world state, not the moment they left.",
     "You may creatively propose base-building, community management, cure leads, rescue routes, factions, and outside locations, but only narrate them through approved mechanics and available routes.",
+    "The outbreak did not begin at UHFR. It is already happening in parts of Nigeria and the world; UHFR enters the crisis when an already-bitten person gets onto campus and reaches class.",
+    "The campaign starts in unease, not normalcy. Most non-security/non-mechanic players begin in a classroom where the bitten-person incident can break the illusion of campus routine.",
     "When multiple players are in the same location, treat them as sharing one scene. Give one consistent narration for everyone there; NPC dialogue must not contradict itself across players.",
-    "Player-to-player messages in the same location are in-scene conversation. Narrate the exchange so all same-location players understand what was said, and let the conversation influence the next pressure point.",
+    "Player-to-player messages in the same location are in-scene conversation, but do not paraphrase or narrate every line they say. Observe silently unless the environment, an NPC, or a consequence needs to interrupt.",
     "You may logically bring an NPC into a scene only if their location, role, route, or reason for being nearby makes sense. Do not teleport important NPCs without plausible cause.",
-    "Use the current outbreak phase strictly. In normalcy, do not introduce zombies, hordes, gunfire, mass panic, or open collapse.",
+    "Use the current outbreak phase strictly. In unease, allow rumors, global clips, a hidden bite, sickness, and denial; avoid instant hordes or full collapse until later phases.",
     "You may use subtle unease, gossip, clinic tension, phone messages, staff nerves, crowd behavior, and location texture.",
     "Never mutate mechanics. Do not decide stats, inventory, XP, travel, injury, death, relationships, resources, mission state, or phase.",
     "If approvedMechanicalEvent says a custom action failed or was blocked, narrate that limit clearly and dramatically without rewarding success.",

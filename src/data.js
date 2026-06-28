@@ -19,6 +19,12 @@ export const classes = {
     stats: { perception: 9, dexterity: 10, intelligence: 7, luck: 8, speed: 10, strength: 16, charisma: 7 },
     inventory: ["phone", "sports tape", "metal water bottle"]
   },
+  security: {
+    label: "Security",
+    summary: "Campus access, crowd control, radios, route authority.",
+    stats: { perception: 13, dexterity: 10, intelligence: 9, luck: 8, speed: 10, strength: 13, charisma: 11 },
+    inventory: ["phone", "radio", "security ID", "baton"]
+  },
   negotiator: {
     label: "Negotiator",
     summary: "Calming people, persuasion, managing panic.",
@@ -62,7 +68,7 @@ export const locations = {
   "library": { name: "Library", known: true, pressure: 1, routes: ["lecture-hall", "admin-block", "medical-faculty"] },
   "medical-faculty": { name: "Medical Faculty", known: true, pressure: 1, routes: ["main-walkway", "library", "campus-clinic", "research-lab"], npc: "dr-ebi" },
   "campus-clinic": { name: "Campus Clinic", known: true, pressure: 2, routes: ["medical-faculty", "hostel-road"], npc: "nurse-boma" },
-  "research-lab": { name: "Research Lab Complex", known: false, pressure: 2, routes: ["medical-faculty", "generator-yard"], npc: "timi-adewale" },
+  "research-lab": { name: "Research Lab Complex", known: false, minPhase: "unease", pressure: 2, routes: ["medical-faculty", "generator-yard"], npc: "timi-adewale" },
   "hostel-road": { name: "Hostel Road", known: true, pressure: 1, routes: ["campus-clinic", "male-hostel", "female-hostel", "sports-field"] },
   "male-hostel": { name: "Male Hostel", known: true, pressure: 1, routes: ["hostel-road"] },
   "female-hostel": { name: "Female Hostel", known: true, pressure: 1, routes: ["hostel-road"], npc: "chidera" },
@@ -72,7 +78,7 @@ export const locations = {
   "staff-quarters": { name: "Staff Quarters", known: false, pressure: 1, routes: ["chapel-mosque", "car-park"] },
   "car-park": { name: "Car Park", known: true, pressure: 1, routes: ["sports-field", "staff-quarters", "back-gate"], npc: "goodluck" },
   "back-gate": { name: "Back Gate", known: false, pressure: 1, routes: ["car-park", "main-gate", "creek-road"] },
-  "generator-yard": { name: "Generator Yard", known: false, pressure: 2, routes: ["research-lab"] },
+  "generator-yard": { name: "Generator Yard", known: false, minPhase: "unease", pressure: 2, routes: ["research-lab"] },
   "rumuokoro-junction": { name: "Rumuokoro Junction", known: false, minPhase: "local-danger", pressure: 3, routes: ["main-gate", "mile-3-market", "teaching-hospital", "waterworks"] },
   "mile-3-market": { name: "Mile 3 Market", known: false, minPhase: "local-danger", pressure: 4, routes: ["rumuokoro-junction", "abandoned-pharmacy", "old-warehouse"] },
   "teaching-hospital": { name: "Port Harcourt Teaching Hospital", known: false, minPhase: "disruption", pressure: 4, routes: ["rumuokoro-junction", "cdc-field-unit"] },
